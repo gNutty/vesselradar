@@ -1,0 +1,14 @@
+CREATE TABLE shipments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID REFERENCES customers(id),
+    booking_no TEXT UNIQUE NOT NULL, -- เช่น BKKM23324000 [cite: 7]
+    carrier_name TEXT, -- เช่น HMM, EVERGREEN, MSC 
+    main_vessel_name TEXT, -- สกัดชื่อเรือออกมา (เช่น HMM HOPE) [cite: 7]
+    voyage_no TEXT, -- สกัดเลข Voyage (เช่น 059E) [cite: 7]
+    mmsi TEXT, -- เก็บเลข 440176000 สำหรับ HMM HOPE
+    origin_port TEXT, -- เช่น LAEM CHABANG 
+    destination_port TEXT, -- เช่น TACOMA [cite: 7]
+    eta_destination DATE, -- เช่น 13-Feb-2026 [cite: 7]
+    status_step TEXT DEFAULT 'Booking', -- Booking, Loading, In Transit, Arrived
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
