@@ -1,9 +1,10 @@
 'use server'
 
-import { getSupabase } from '@/lib/supabase';
+import { getSupabase, getSupabaseService } from '@/lib/supabase';
 
 export async function getShipments() {
-    const supabase = getSupabase();
+    // Use service role to bypass RLS for server-side data fetching
+    const supabase = getSupabaseService();
     if (!supabase) return [];
 
     const { data, error } = await supabase

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import StatsCards from '@/components/StatsCards';
@@ -12,6 +13,30 @@ const VesselMap = dynamic(() => import('@/components/VesselMap'), {
     loading: () => <div className="glass-card rounded-2xl h-[500px] mb-8 animate-pulse bg-white/5" />
 });
 
+// Sample vessel data for Route Schedule
+const routeScheduleData = [
+    {
+        id: 'hmm-hope-1',
+        name: 'HMM HOPE',
+        status: 'DEPARTURE',
+        scheduledDate: 'Jan 25, 2026',
+        statusTag: 'On Time',
+        latitude: 13.048,
+        longitude: 100.897,
+        bookingNo: 'BK-2026-001'
+    },
+    {
+        id: 'hmm-hope-2',
+        name: 'HMM HOPE',
+        status: 'DEPARTURE',
+        scheduledDate: 'Jan 28, 2026',
+        statusTag: 'On Time',
+        latitude: 1.264,
+        longitude: 103.822,
+        bookingNo: 'BK-2026-002'
+    }
+];
+
 interface DashboardClientProps {
     shipments: any[];
     logs: any[];
@@ -19,6 +44,12 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ shipments, logs, stats }: DashboardClientProps) {
+    const [selectedVessel, setSelectedVessel] = useState<typeof routeScheduleData[0] | null>(null);
+
+    const handleVesselClick = (vessel: typeof routeScheduleData[0]) => {
+        setSelectedVessel(vessel);
+    };
+
     return (
         <div className="flex min-h-screen">
             <Sidebar />
@@ -57,25 +88,33 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     <div className="xl:col-span-2">
-                        <VesselMap logs={logs} />
+                        <VesselMap logs={logs} selectedVessel={selectedVessel} />
                         <ShipmentTable shipments={shipments} />
                     </div>
 
                     <div className="space-y-8">
                         <div className="glass-card p-6 rounded-2xl">
                             <h3 className="font-bold mb-4">Route Schedule</h3>
-                            <div className="space-y-4">
-                                {[1, 2].map((i) => (
-                                    <div key={i} className="flex space-x-3 items-start">
-                                        <div className="w-1 h-12 bg-accent-blue rounded-full" />
+                            <div className="space-y-3">
+                                {routeScheduleData.map((vessel) => (
+                                    <button
+                                        key={vessel.id}
+                                        onClick={() => handleVesselClick(vessel)}
+                                        className={`w-full flex space-x-3 items-start text-left p-3 rounded-xl transition-all duration-200 ${selectedVessel?.id === vessel.id
+                                                ? 'bg-accent-blue/20 border border-accent-blue/50'
+                                                : 'hover:bg-white/5 border border-transparent'
+                                            }`}
+                                    >
+                                        <div className={`w-1 h-12 rounded-full transition-colors ${selectedVessel?.id === vessel.id ? 'bg-accent-blue' : 'bg-slate-600'
+                                            }`} />
                                         <div>
-                                            <p className="text-sm font-bold">HMM HOPE - DEPARTURE</p>
-                                            <p className="text-xs text-slate-500">Scheduled: Jan 25, 2026</p>
+                                            <p className="text-sm font-bold">{vessel.name} - {vessel.status}</p>
+                                            <p className="text-xs text-slate-500">Scheduled: {vessel.scheduledDate}</p>
                                             <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded uppercase font-bold mt-1 inline-block">
-                                                On Time
+                                                {vessel.statusTag}
                                             </span>
                                         </div>
-                                    </div>
+                                    </button>
                                 ))}
                             </div>
                         </div>
