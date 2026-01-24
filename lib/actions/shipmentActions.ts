@@ -21,7 +21,7 @@ export async function getShipments() {
 }
 
 export async function getLatestTrackingLogs() {
-    const supabase = getSupabase();
+    const supabase = getSupabaseService();
     if (!supabase) return [];
 
     // Fetch the latest entry from tracking_logs for each shipment
@@ -53,7 +53,7 @@ export async function getLatestTrackingLogs() {
 }
 
 export async function getDashboardStats() {
-    const supabase = getSupabase();
+    const supabase = getSupabaseService();
     if (!supabase) return { total: 0, inTransit: 0, arrived: 0 };
 
     const { data: shipments, error } = await supabase

@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# project specific
+/docs/ais/
+/docs/Booking/
+/docs/*.zst
+/docs/*.log
+/docs/*.txt
+/docs/*.json
+!/docs/noaa_processed_urls.json
+!/docs/processed_files.json
+/docs/__pycache__/
+*.log
+/app/api/debug/
+

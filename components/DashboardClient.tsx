@@ -45,9 +45,72 @@ interface DashboardClientProps {
 
 export default function DashboardClient({ shipments, logs, stats }: DashboardClientProps) {
     const [selectedVessel, setSelectedVessel] = useState<typeof routeScheduleData[0] | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Filter shipments based on search term
+    const filteredShipments = shipments.filter(ship =>
+        ship.booking_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ship.main_vessel_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const handleVesselClick = (vessel: typeof routeScheduleData[0]) => {
         setSelectedVessel(vessel);
+    };
+
+    // Fallback port coordinates when no tracking log exists
+    const portCoordinates: Record<string, { lat: number; lng: number }> = {
+        'LAEM CHABANG': { lat: 13.0548, lng: 100.8801 },
+        'LCB': { lat: 13.0548, lng: 100.8801 },
+        'BANGKOK': { lat: 13.7563, lng: 100.5018 },
+        'SINGAPORE': { lat: 1.2644, lng: 103.8225 },
+        'HONG KONG': { lat: 22.3193, lng: 114.1694 },
+        'BUSAN': { lat: 35.0951, lng: 129.0300 },
+        'ROTTERDAM': { lat: 51.9225, lng: 4.4792 },
+        'LOS ANGELES': { lat: 33.7366, lng: -118.2923 },
+        'LONG BEACH': { lat: 33.7539, lng: -118.2216 },
+        'DEFAULT': { lat: 13.048, lng: 100.897 } // Southeast Asia default
+    };
+
+    const getPortCoordinates = (portName: string | null | undefined) => {
+        if (!portName) return portCoordinates['DEFAULT'];
+        const upperPort = portName.toUpperCase();
+        for (const [key, coords] of Object.entries(portCoordinates)) {
+            if (upperPort.includes(key)) return coords;
+        }
+        return portCoordinates['DEFAULT'];
+    };
+
+    const handleShipmentSelect = (shipment: any) => {
+        // Find the latest log for this shipment to get coordinates
+        const shipLog = logs.find(log => log.shipment_id === shipment.id);
+
+        let latitude: number;
+        let longitude: number;
+        let statusTag: string;
+
+        if (shipLog) {
+            // Use tracking log coordinates
+            latitude = shipLog.latitude;
+            longitude = shipLog.longitude;
+            statusTag = 'LIVE';
+        } else {
+            // Fallback: Use port of loading coordinates
+            const fallbackCoords = getPortCoordinates(shipment.port_of_loading);
+            latitude = fallbackCoords.lat;
+            longitude = fallbackCoords.lng;
+            statusTag = 'ESTIMATED';
+        }
+
+        setSelectedVessel({
+            id: shipment.id,
+            name: shipment.main_vessel_name,
+            status: shipment.current_status_step || 'Unknown',
+            scheduledDate: shipment.eta_at_pod ? `ETA: ${new Date(shipment.eta_at_pod).toLocaleDateString('en-GB')}` : 'ETA: TBD',
+            statusTag,
+            latitude,
+            longitude,
+            bookingNo: shipment.booking_no
+        });
     };
 
     return (
@@ -67,7 +130,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-accent-blue transition-colors" size={18} />
                             <input
                                 type="text"
-                                placeholder="Search Booking ID..."
+                                placeholder="Search Booking ID or Vessel..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-accent-blue/50 focus:bg-white/10 transition-all w-64"
                             />
                         </div>
@@ -89,7 +154,10 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     <div className="xl:col-span-2">
                         <VesselMap logs={logs} selectedVessel={selectedVessel} />
-                        <ShipmentTable shipments={shipments} />
+                        <ShipmentTable
+                            shipments={filteredShipments}
+                            onShipmentSelect={handleShipmentSelect}
+                        />
                     </div>
 
                     <div className="space-y-8">
@@ -101,8 +169,8 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                         key={vessel.id}
                                         onClick={() => handleVesselClick(vessel)}
                                         className={`w-full flex space-x-3 items-start text-left p-3 rounded-xl transition-all duration-200 ${selectedVessel?.id === vessel.id
-                                                ? 'bg-accent-blue/20 border border-accent-blue/50'
-                                                : 'hover:bg-white/5 border border-transparent'
+                                            ? 'bg-accent-blue/20 border border-accent-blue/50'
+                                            : 'hover:bg-white/5 border border-transparent'
                                             }`}
                                     >
                                         <div className={`w-1 h-12 rounded-full transition-colors ${selectedVessel?.id === vessel.id ? 'bg-accent-blue' : 'bg-slate-600'

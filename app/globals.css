@@ -1,5 +1,7 @@
-@import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --navy-dark: #0f172a;
@@ -29,10 +31,4 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--glass-border);
-}
-
-@theme inline {
-  --color-navy-dark: var(--navy-dark);
-  --color-navy-light: var(--navy-light);
-  --color-accent-blue: var(--accent-blue);
 }
