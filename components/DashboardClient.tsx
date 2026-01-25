@@ -171,8 +171,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                 {/* Dashboard Content */}
                 <StatsCards stats={stats} />
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    <div className="xl:col-span-2">
+                <div className="space-y-8">
+                    {/* Active Shipments Section (Map + Table) - Full Width */}
+                    <div className="w-full">
                         <VesselMap logs={logs} selectedVessel={selectedVessel} />
                         <ShipmentTable
                             shipments={filteredShipments}
@@ -180,7 +181,8 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                         />
                     </div>
 
-                    <div className="space-y-8">
+                    {/* Bottom Section: Route Schedule & Support - 2 Columns */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="glass-card p-6 rounded-2xl">
                             <h3 className="font-bold mb-4">Route Schedule</h3>
                             <div className="space-y-3">
@@ -258,7 +260,7 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                             </div>
                         </div>
 
-                        <div className="glass-card p-6 rounded-2xl bg-gradient-to-br from-accent-blue/10 to-transparent border-accent-blue/20">
+                        <div className="glass-card p-6 rounded-2xl bg-gradient-to-br from-accent-blue/10 to-transparent border-accent-blue/20 h-fit">
                             <h3 className="font-bold mb-2 text-accent-blue">Premium Support</h3>
                             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                                 Need help with your shipment or have a special request? Our support team is available 24/7.
