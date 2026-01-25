@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import StatsCards from '@/components/StatsCards';
 import ShipmentTable from '@/components/ShipmentTable';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Search, User, RefreshCw } from 'lucide-react';
 
 // Dynamically import the map to avoid SSR issues with Leaflet
 const VesselMap = dynamic(() => import('@/components/VesselMap'), {
@@ -13,29 +13,18 @@ const VesselMap = dynamic(() => import('@/components/VesselMap'), {
     loading: () => <div className="glass-card rounded-2xl h-[500px] mb-8 animate-pulse bg-white/5" />
 });
 
-// Sample vessel data for Route Schedule
-const routeScheduleData = [
-    {
-        id: 'hmm-hope-1',
-        name: 'HMM HOPE',
-        status: 'DEPARTURE',
-        scheduledDate: 'Jan 25, 2026',
-        statusTag: 'On Time',
-        latitude: 13.048,
-        longitude: 100.897,
-        bookingNo: 'BK-2026-001'
-    },
-    {
-        id: 'hmm-hope-2',
-        name: 'HMM HOPE',
-        status: 'DEPARTURE',
-        scheduledDate: 'Jan 28, 2026',
-        statusTag: 'On Time',
-        latitude: 1.264,
-        longitude: 103.822,
-        bookingNo: 'BK-2026-002'
-    }
-];
+// Interface for the selected vessel state
+interface SelectedVessel {
+    id: string;
+    name: string;
+    status: string;
+    scheduledDate: string;
+    statusTag: string;
+    latitude: number;
+    longitude: number;
+    bookingNo: string;
+    mmsi?: string;
+}
 
 interface DashboardClientProps {
     shipments: any[];
@@ -44,8 +33,9 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ shipments, logs, stats }: DashboardClientProps) {
-    const [selectedVessel, setSelectedVessel] = useState<typeof routeScheduleData[0] | null>(null);
+    const [selectedVessel, setSelectedVessel] = useState<SelectedVessel | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Filter shipments based on search term
     const filteredShipments = shipments.filter(ship =>
@@ -53,9 +43,7 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
         ship.main_vessel_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleVesselClick = (vessel: typeof routeScheduleData[0]) => {
-        setSelectedVessel(vessel);
-    };
+
 
     // Fallback port coordinates when no tracking log exists
     const portCoordinates: Record<string, { lat: number; lng: number }> = {
@@ -109,8 +97,40 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
             statusTag,
             latitude,
             longitude,
-            bookingNo: shipment.booking_no
+            bookingNo: shipment.booking_no,
+            mmsi: shipment.mmsi || undefined,
         });
+    };
+
+    const handleRefreshLocation = async () => {
+        if (!selectedVessel || !selectedVessel.mmsi) {
+            console.warn('Cannot refresh: No vessel selected or MMSI missing');
+            return;
+        }
+
+        setIsRefreshing(true);
+        try {
+            const response = await fetch(
+                `/api/vessel-location?mmsi=${selectedVessel.mmsi}&shipmentId=${selectedVessel.id}&forceRefresh=true`
+            );
+            const data = await response.json();
+
+            if (response.ok && data.latitude && data.longitude) {
+                setSelectedVessel(prev => prev ? {
+                    ...prev,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    statusTag: 'LIVE',
+                } : null);
+                console.log('[DashboardClient] Location refreshed:', data.source);
+            } else {
+                console.error('[DashboardClient] Refresh failed:', data.error);
+            }
+        } catch (error) {
+            console.error('[DashboardClient] Refresh error:', error);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     return (
@@ -164,26 +184,77 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                         <div className="glass-card p-6 rounded-2xl">
                             <h3 className="font-bold mb-4">Route Schedule</h3>
                             <div className="space-y-3">
-                                {routeScheduleData.map((vessel) => (
-                                    <button
-                                        key={vessel.id}
-                                        onClick={() => handleVesselClick(vessel)}
-                                        className={`w-full flex space-x-3 items-start text-left p-3 rounded-xl transition-all duration-200 ${selectedVessel?.id === vessel.id
-                                            ? 'bg-accent-blue/20 border border-accent-blue/50'
-                                            : 'hover:bg-white/5 border border-transparent'
-                                            }`}
-                                    >
-                                        <div className={`w-1 h-12 rounded-full transition-colors ${selectedVessel?.id === vessel.id ? 'bg-accent-blue' : 'bg-slate-600'
-                                            }`} />
-                                        <div>
-                                            <p className="text-sm font-bold">{vessel.name} - {vessel.status}</p>
-                                            <p className="text-xs text-slate-500">Scheduled: {vessel.scheduledDate}</p>
-                                            <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded uppercase font-bold mt-1 inline-block">
-                                                {vessel.statusTag}
-                                            </span>
-                                        </div>
-                                    </button>
-                                ))}
+                                {selectedVessel ? (
+                                    // Show ONLY the selected vessel
+                                    <>
+                                        <button
+                                            key={selectedVessel.id}
+                                            className="w-full flex space-x-3 items-start text-left p-3 rounded-xl transition-all duration-200 bg-accent-blue/20 border border-accent-blue/50"
+                                        >
+                                            <div className="w-1 h-12 rounded-full transition-colors bg-accent-blue" />
+                                            <div>
+                                                <p className="text-sm font-bold">{selectedVessel.name} - {selectedVessel.status}</p>
+                                                <p className="text-xs text-slate-500">{selectedVessel.scheduledDate}</p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded uppercase font-bold inline-block">
+                                                        {selectedVessel.statusTag}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400">
+                                                        BK: {selectedVessel.bookingNo}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </button>
+
+                                        {/* Refresh Location Button */}
+                                        {selectedVessel.mmsi && (
+                                            <button
+                                                onClick={handleRefreshLocation}
+                                                disabled={isRefreshing}
+                                                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl transition-all duration-200 bg-accent-blue/10 border border-accent-blue/30 hover:bg-accent-blue/20 hover:border-accent-blue/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <RefreshCw
+                                                    size={14}
+                                                    className={`text-accent-blue ${isRefreshing ? 'animate-spin' : ''}`}
+                                                />
+                                                <span className="text-xs font-semibold text-accent-blue">
+                                                    {isRefreshing ? 'Refreshing...' : 'Refresh Location'}
+                                                </span>
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    // Show list of top 5 shipments when nothing selected
+                                    shipments.slice(0, 5).map((shipment) => {
+                                        const hasLog = logs.some(l => l.shipment_id === shipment.id);
+                                        return (
+                                            <button
+                                                key={shipment.id}
+                                                onClick={() => handleShipmentSelect(shipment)}
+                                                className="w-full flex space-x-3 items-start text-left p-3 rounded-xl transition-all duration-200 hover:bg-white/5 border border-transparent"
+                                            >
+                                                <div className="w-1 h-12 rounded-full transition-colors bg-slate-600" />
+                                                <div>
+                                                    <p className="text-sm font-bold">{shipment.main_vessel_name} - {shipment.current_status_step || 'Pending'}</p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {shipment.eta_at_pod
+                                                            ? `ETA: ${new Date(shipment.eta_at_pod).toLocaleDateString('en-GB')}`
+                                                            : 'ETA: TBD'}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold inline-block ${hasLog ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'
+                                                            }`}>
+                                                            {hasLog ? 'Live' : 'Estimated'}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400">
+                                                            BK: {shipment.booking_no}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
 
