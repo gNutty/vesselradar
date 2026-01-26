@@ -1,0 +1,2 @@
+ALTER TABLE public.shipments 
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();

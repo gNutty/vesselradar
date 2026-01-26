@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS public.shipments (
     pod_name TEXT, -- Tacoma , Vancouver, หรือ Abidjan 
     eta_at_pod DATE, -- 13-Feb-2026 
     current_status_step TEXT DEFAULT 'Booking',
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 3. ตารางบันทึกตำแหน่งเรือ (Tracking Logs)

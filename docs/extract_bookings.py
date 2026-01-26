@@ -460,14 +460,24 @@ def detect_booking_type(text: str) -> str:
     return 'UNKNOWN'
 
 
-def extract_booking_data(pdf_path: str, supabase: Client = None) -> dict:
-    """Extract booking data from PDF file with smart MMSI lookup"""
-    with pdfplumber.open(pdf_path) as pdf:
-        text = ''
-        for page in pdf.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + '\n'
+def extract_booking_data(pdf_file: "str | object", supabase: Client = None) -> dict:
+    """
+    Extract booking data from PDF file with smart MMSI lookup.
+    
+    Args:
+        pdf_file: Path to PDF file (str) or file-like object (BytesIO)
+        supabase: Supabase client instance
+    """
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            text = ''
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + '\n'
+    except Exception as e:
+        print(f"Error opening PDF: {e}")
+        return None
     
     booking_type = detect_booking_type(text)
     
@@ -478,7 +488,7 @@ def extract_booking_data(pdf_path: str, supabase: Client = None) -> dict:
     elif booking_type == 'EVERGREEN':
         data = extract_evergreen_booking(text)
     else:
-        print(f"Unknown booking type for: {pdf_path}")
+        print(f"Unknown booking type")
         return None
     
     # Smart MMSI lookup for vessel
