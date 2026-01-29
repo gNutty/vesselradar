@@ -71,14 +71,29 @@ export async function GET(request: NextRequest) {
         if (vesselData) {
             // Step 3: Save to tracking_logs
             if (supabase && shipmentId) {
-                const statusText = `Speed: ${vesselData.SPEED} kn, Course: ${vesselData.COURSE}°`;
                 const { error: insertError } = await supabase
                     .from('tracking_logs')
                     .insert({
                         shipment_id: shipmentId,
-                        latitude: vesselData.LATITUDE,
-                        longitude: vesselData.LONGITUDE,
-                        status_text: statusText,
+                        latitude: vesselData.latitude,
+                        longitude: vesselData.longitude,
+                        vessel_name: vesselData.vesselName,
+                        mmsi: vesselData.mmsi,
+                        imo: vesselData.imo,
+                        flag: vesselData.flag,
+                        call_sign: vesselData.callSign,
+                        vessel_type: vesselData.vesselType,
+                        length: vesselData.length,
+                        beam: vesselData.beam,
+                        draught: vesselData.draught,
+                        area: vesselData.area,
+                        speed_knots: vesselData.speedKnots,
+                        course: vesselData.course,
+                        status: vesselData.status,
+                        previous_port: vesselData.previousPort,
+                        current_port: vesselData.currentPort,
+                        next_port: vesselData.nextPort,
+                        api_updated_at: vesselData.updatedAt,
                         last_sync: new Date().toISOString(),
                     });
 
@@ -90,15 +105,16 @@ export async function GET(request: NextRequest) {
             }
 
             return NextResponse.json({
-                mmsi: vesselData.MMSI,
-                name: vesselData.NAME,
-                latitude: vesselData.LATITUDE,
-                longitude: vesselData.LONGITUDE,
-                speed: vesselData.SPEED,
-                course: vesselData.COURSE,
-                heading: vesselData.HEADING,
-                timestamp: vesselData.TIMESTAMP,
-                imo: vesselData.IMO,
+                mmsi: vesselData.mmsi,
+                name: vesselData.vesselName,
+                latitude: vesselData.latitude,
+                longitude: vesselData.longitude,
+                speed: vesselData.speedKnots,
+                course: vesselData.course,
+                timestamp: vesselData.updatedAt,
+                imo: vesselData.imo,
+                flag: vesselData.flag,
+                status: vesselData.status,
                 source: forceRefresh ? 'api-forced' : 'api',
             });
         }

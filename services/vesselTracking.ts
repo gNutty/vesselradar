@@ -1,17 +1,31 @@
 import axios from 'axios';
 import { getSupabaseService } from '@/lib/supabase';
 
+export interface PortData {
+    name: string;
+    time: string;
+}
+
 export interface VesselTrackingData {
-    MMSI: string;
-    LATITUDE: number;
-    LONGITUDE: number;
-    SPEED: number;
-    COURSE: number;
-    HEADING: number;
-    TIMESTAMP: string;
-    NAME: string;
-    IMO: string;
-    AIS_TYPE_SUMMARY?: string;
+    imo: string;
+    mmsi: string;
+    flag: string;
+    callSign: string;
+    vesselType: string;
+    length: number;
+    beam: number;
+    draught: number;
+    updatedAt: string;
+    longitude: number;
+    latitude: number;
+    vesselName: string;
+    area: string;
+    speedKnots: number | null;
+    course: number | null;
+    status: string;
+    previousPort: PortData | null;
+    currentPort: PortData | null;
+    nextPort: PortData | null;
 }
 
 export interface VesselMmsiResult {
@@ -91,11 +105,12 @@ export const getVesselMmsi = async (vesselName: string): Promise<VesselMmsiResul
 
     const options = {
         method: 'GET',
-        url: 'https://vesselfinder1.p.rapidapi.com/search',
+        url: 'https://ais-vessel-finder.p.rapidapi.com/getAisData',
         params: { name: vesselName },
         headers: {
             'x-rapidapi-key': apiKey,
-            'x-rapidapi-host': 'vesselfinder1.p.rapidapi.com'
+            'x-rapidapi-host': 'ais-vessel-finder.p.rapidapi.com',
+            '11497305': '11497305'
         }
     };
 
@@ -113,8 +128,8 @@ export const getVesselMmsi = async (vesselName: string): Promise<VesselMmsiResul
         const vessels = Array.isArray(results) ? results : [results];
 
         let selectedVessel = vessels.find((v: VesselTrackingData) =>
-            v.AIS_TYPE_SUMMARY && CARGO_SHIP_TYPES.some(type =>
-                v.AIS_TYPE_SUMMARY?.toLowerCase().includes(type.toLowerCase())
+            v.vesselType && CARGO_SHIP_TYPES.some(type =>
+                v.vesselType.toLowerCase().includes(type.toLowerCase())
             )
         );
 
@@ -124,21 +139,21 @@ export const getVesselMmsi = async (vesselName: string): Promise<VesselMmsiResul
             console.log(`[getVesselMmsi] No cargo vessel found, using first result`);
         }
 
-        if (!selectedVessel || !selectedVessel.MMSI) {
+        if (!selectedVessel || !selectedVessel.mmsi) {
             console.log(`[getVesselMmsi] No valid vessel found for: ${vesselName}`);
             return { mmsi: null };
         }
 
-        console.log(`[getVesselMmsi] Found vessel: ${selectedVessel.NAME}, MMSI: ${selectedVessel.MMSI}, Type: ${selectedVessel.AIS_TYPE_SUMMARY}`);
+        console.log(`[getVesselMmsi] Found vessel: ${selectedVessel.vesselName}, MMSI: ${selectedVessel.mmsi}, Type: ${selectedVessel.vesselType}`);
 
         // Step 4: Save to vessel_master cache
         if (supabase) {
             try {
                 await supabase.from('vessel_master').upsert({
                     vessel_name: normalizedName,
-                    mmsi: selectedVessel.MMSI,
-                    imo: selectedVessel.IMO || null,
-                    ship_type: selectedVessel.AIS_TYPE_SUMMARY || null,
+                    mmsi: selectedVessel.mmsi,
+                    imo: selectedVessel.imo || null,
+                    ship_type: selectedVessel.vesselType || null,
                     updated_at: new Date().toISOString(),
                 }, { onConflict: 'vessel_name' });
                 console.log(`[getVesselMmsi] Cached MMSI for ${normalizedName}`);
@@ -148,9 +163,9 @@ export const getVesselMmsi = async (vesselName: string): Promise<VesselMmsiResul
         }
 
         return {
-            mmsi: selectedVessel.MMSI,
-            imo: selectedVessel.IMO || null,
-            shipType: selectedVessel.AIS_TYPE_SUMMARY,
+            mmsi: selectedVessel.mmsi,
+            imo: selectedVessel.imo || null,
+            shipType: selectedVessel.vesselType,
             fromCache: false,
         };
 
@@ -169,11 +184,12 @@ export const fetchVesselData = async (mmsi: string): Promise<VesselTrackingData 
 
     const options = {
         method: 'GET',
-        url: 'https://vesselfinder1.p.rapidapi.com/search',
+        url: 'https://ais-vessel-finder.p.rapidapi.com/getAisData',
         params: { mmsi },
         headers: {
             'x-rapidapi-key': apiKey,
-            'x-rapidapi-host': 'vesselfinder1.p.rapidapi.com'
+            'x-rapidapi-host': 'ais-vessel-finder.p.rapidapi.com',
+            '11497305': '11497305'
         }
     };
 
@@ -185,7 +201,7 @@ export const fetchVesselData = async (mmsi: string): Promise<VesselTrackingData 
 
         if (Array.isArray(data) && data.length > 0) {
             return data[0];
-        } else if (data && data.MMSI) {
+        } else if (data && (data.mmsi || data.MMSI)) {
             return data;
         }
 

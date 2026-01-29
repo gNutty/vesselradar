@@ -92,10 +92,11 @@ def get_vessel_mmsi(vessel_name: str, supabase: Client = None) -> dict:
         print("[get_vessel_mmsi] RAPIDAPI_KEY is missing")
         return {'mmsi': None}
     
-    url = "https://vesselfinder1.p.rapidapi.com/search"
+    url = "https://ais-vessel-finder.p.rapidapi.com/getAisData"
     headers = {
         "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "vesselfinder1.p.rapidapi.com"
+        "x-rapidapi-host": "ais-vessel-finder.p.rapidapi.com",
+        "11497305": "11497305"
     }
     params = {"name": vessel_name}
     

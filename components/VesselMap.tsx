@@ -53,7 +53,12 @@ interface TrackingLog {
     shipment_id: string;
     latitude: number;
     longitude: number;
-    status_text: string;
+    status: string;
+    speed_knots: number;
+    course: number;
+    vessel_name: string;
+    mmsi: string;
+    flag: string;
     shipments: {
         booking_no: string;
         main_vessel_name: string;
@@ -134,10 +139,12 @@ export default function VesselMap({ logs, selectedVessel }: VesselMapProps) {
                     >
                         <Popup>
                             <div className="p-1">
-                                <p className="font-bold text-navy-dark mb-0.5">{log.shipments?.main_vessel_name}</p>
+                                <p className="font-bold text-navy-dark mb-0.5">{log.vessel_name || log.shipments?.main_vessel_name}</p>
                                 <p className="text-xs text-slate-500 mb-2">Booking: {log.shipments?.booking_no}</p>
                                 <div className="border-t border-slate-100 pt-2 text-[10px] text-slate-400">
-                                    <p>STATUS: {log.status_text}</p>
+                                    <p>STATUS: {log.status || 'N/A'}</p>
+                                    <p>SPEED: {log.speed_knots} kn</p>
+                                    <p>FLAG: {log.flag || 'N/A'}</p>
                                     <p>COORDS: {log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}</p>
                                 </div>
                             </div>

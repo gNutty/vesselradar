@@ -24,6 +24,8 @@ interface SelectedVessel {
     longitude: number;
     bookingNo: string;
     mmsi?: string;
+    flag?: string;
+    speed?: number | null;
 }
 
 interface DashboardClientProps {
@@ -92,13 +94,15 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
         setSelectedVessel({
             id: shipment.id,
             name: shipment.main_vessel_name,
-            status: shipment.current_status_step || 'Unknown',
+            status: shipLog?.status || shipment.current_status_step || 'Unknown',
             scheduledDate: shipment.eta_at_pod ? `ETA: ${new Date(shipment.eta_at_pod).toLocaleDateString('en-GB')}` : 'ETA: TBD',
             statusTag,
             latitude,
             longitude,
             bookingNo: shipment.booking_no,
             mmsi: shipment.mmsi || undefined,
+            flag: shipLog?.flag,
+            speed: shipLog?.speed_knots,
         });
     };
 
@@ -120,6 +124,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                     ...prev,
                     latitude: data.latitude,
                     longitude: data.longitude,
+                    status: data.status || prev.status,
+                    flag: data.flag || prev.flag,
+                    speed: data.speed || prev.speed,
                     statusTag: 'LIVE',
                 } : null);
                 console.log('[DashboardClient] Location refreshed:', data.source);

@@ -39,9 +39,25 @@ export async function GET() {
                     .from('tracking_logs')
                     .insert({
                         shipment_id: shipment.id,
-                        latitude: trackingData.LATITUDE,
-                        longitude: trackingData.LONGITUDE,
-                        status_text: `Speed: ${trackingData.SPEED} kn, Course: ${trackingData.COURSE}°`,
+                        latitude: trackingData.latitude,
+                        longitude: trackingData.longitude,
+                        vessel_name: trackingData.vesselName,
+                        mmsi: trackingData.mmsi,
+                        imo: trackingData.imo,
+                        flag: trackingData.flag,
+                        call_sign: trackingData.callSign,
+                        vessel_type: trackingData.vesselType,
+                        length: trackingData.length,
+                        beam: trackingData.beam,
+                        draught: trackingData.draught,
+                        area: trackingData.area,
+                        speed_knots: trackingData.speedKnots,
+                        course: trackingData.course,
+                        status: trackingData.status,
+                        previous_port: trackingData.previousPort,
+                        current_port: trackingData.currentPort,
+                        next_port: trackingData.nextPort,
+                        api_updated_at: trackingData.updatedAt,
                         last_sync: new Date().toISOString()
                     });
 
