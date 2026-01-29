@@ -10,9 +10,9 @@
 - [x] พัฒนาระบบ Background Sync เพื่ออัปเดตพิกัดเรือลงฐานข้อมูลอัตโนมัติ.
 
 ## Phase 3: Frontend Dashboard Development
-- [ ] ออกแบบ Summary Cards (In Transit, Arriving Soon).
-- [ ] ติดตั้งและตั้งค่า Leaflet.js เพื่อแสดงแผนที่ตำแหน่งเรือ.
-- [ ] สร้างตารางรายการ Shipment พร้อม Progress Bar แสดงสถานะ.
+- [x] ออกแบบ Summary Cards (In Transit, Arriving Soon).
+- [x] ติดตั้งและตั้งค่า Leaflet.js เพื่อแสดงแผนที่ตำแหน่งเรือ.
+- [x] สร้างตารางรายการ Shipment พร้อม Progress Bar แสดงสถานะ.
 เพื่อให้ชัดเจนมากขึ้น
 Component Library: "ใช้ shadcn/ui สำหรับ UI Components พื้นฐาน เช่น Table, Card, และ Button" เพื่อให้ได้ดีไซน์ที่พรีเมียมและรวดเร็ว
 Color Palette: "Primary: Navy Blue (#000080), Accent: Electric Blue (#0070f3) สำหรับสถานะ Active"

@@ -178,9 +178,10 @@ export const getVesselMmsi = async (vesselName: string): Promise<VesselMmsiResul
 export const fetchVesselData = async (mmsi: string): Promise<VesselTrackingData | null> => {
     const apiKey = process.env.RAPIDAPI_KEY;
     if (!apiKey) {
-        console.error('RAPIDAPI_KEY is missing');
+        console.error('[fetchVesselData] RAPIDAPI_KEY is missing from environment variables!');
         return null;
     }
+    console.log(`[fetchVesselData] Using API Key (last 4 chars): ...${apiKey.slice(-4)}`);
 
     const options = {
         method: 'GET',
@@ -206,8 +207,14 @@ export const fetchVesselData = async (mmsi: string): Promise<VesselTrackingData 
         }
 
         return null;
-    } catch (error) {
-        console.error(`Error fetching vessel data for MMSI ${mmsi}:`, error);
+    } catch (error: any) {
+        const statusCode = error.response?.status;
+        const errorData = error.response?.data;
+        console.error(`[fetchVesselData] Error for MMSI ${mmsi}:`, {
+            status: statusCode,
+            message: error.message,
+            data: errorData
+        });
         return null;
     }
 };

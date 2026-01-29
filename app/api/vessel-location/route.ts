@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
         // Fallback to mock data if API fails
         const mockData = MOCK_VESSEL_LOCATIONS[mmsi];
         if (mockData) {
-            console.log(`[vessel-location] Using mock data for MMSI ${mmsi}`);
+            console.log(`[vessel-location] API returned no data, falling back to MOCK data for MMSI ${mmsi}`);
             return NextResponse.json({
                 mmsi,
                 name: mockData.name,
