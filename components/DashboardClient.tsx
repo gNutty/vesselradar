@@ -118,8 +118,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
         });
     };
 
-    const handleRefreshLocation = async () => {
-        if (!selectedVessel || !selectedVessel.mmsi) {
+    const handleRefreshLocation = async (shipmentToRefresh?: any) => {
+        const ship = shipmentToRefresh || selectedVessel;
+        if (!ship || !ship.mmsi) {
             console.warn('Cannot refresh: No vessel selected or MMSI missing');
             return;
         }
@@ -127,20 +128,23 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
         setIsRefreshing(true);
         try {
             const response = await fetch(
-                `/api/vessel-location?mmsi=${selectedVessel.mmsi}&shipmentId=${selectedVessel.id}&forceRefresh=true`
+                `/api/vessel-location?mmsi=${ship.mmsi}&shipmentId=${ship.id}&forceRefresh=true`
             );
             const data = await response.json();
 
             if (response.ok && data.latitude && data.longitude) {
-                setSelectedVessel(prev => prev ? {
-                    ...prev,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    status: data.status || prev.status,
-                    flag: data.flag || prev.flag,
-                    speed: data.speed || prev.speed,
-                    statusTag: 'LIVE',
-                } : null);
+                // If the refreshed shipment is currently selected, update its state
+                if (selectedVessel && selectedVessel.id === ship.id) {
+                    setSelectedVessel(prev => prev ? {
+                        ...prev,
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                        status: data.status || prev.status,
+                        flag: data.flag || prev.flag,
+                        speed: data.speed || prev.speed,
+                        statusTag: 'LIVE',
+                    } : null);
+                }
                 console.log('[DashboardClient] Location refreshed:', data.source);
             } else {
                 console.error('[DashboardClient] Refresh failed:', data.error);
@@ -158,13 +162,18 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
 
             <main className="flex-1 lg:ml-64 p-8">
                 {/* Top Header */}
-                <header className="flex justify-between items-center mb-10">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">Fleet Dashboard</h1>
-                        <p className="text-slate-400">Welcome back, here's what's happening with your shipments.</p>
+                <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10">
+                    <div className="flex items-center gap-8">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-2">Fleet Dashboard</h1>
+                            <p className="text-slate-400 text-xs">Welcome back, here's what's happening with your shipments.</p>
+                        </div>
+                        <div className="hidden xl:block">
+                            <StatsCards stats={stats} variant="compact" />
+                        </div>
                     </div>
 
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 self-end lg:self-center">
                         <div className="relative group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-accent-blue transition-colors" size={18} />
                             <input
@@ -187,8 +196,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                     </div>
                 </header>
 
-                {/* Dashboard Content */}
-                <StatsCards stats={stats} />
+                <div className="xl:hidden mb-8">
+                    <StatsCards stats={stats} />
+                </div>
 
                 <div className="space-y-8">
                     {/* Active Shipments Section (Map + Table) - Full Width */}
@@ -197,6 +207,9 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                         <ShipmentTable
                             shipments={filteredShipments}
                             onShipmentSelect={handleShipmentSelect}
+                            onRefreshLocation={handleRefreshLocation}
+                            selectedId={selectedVessel?.id}
+                            isRefreshing={isRefreshing}
                         />
                     </div>
 
@@ -218,8 +231,8 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                                 <p className="text-xs text-slate-500">{selectedVessel.scheduledDate}</p>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold inline-block ${selectedVessel.statusTag === 'LIVE' ? 'bg-green-500/20 text-green-400' :
-                                                            selectedVessel.statusTag === 'STALE' ? 'bg-orange-500/20 text-orange-400' :
-                                                                'bg-slate-500/20 text-slate-400'
+                                                        selectedVessel.statusTag === 'STALE' ? 'bg-orange-500/20 text-orange-400' :
+                                                            'bg-slate-500/20 text-slate-400'
                                                         }`}>
                                                         {selectedVessel.statusTag}
                                                     </span>
@@ -229,23 +242,6 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                                 </div>
                                             </div>
                                         </button>
-
-                                        {/* Refresh Location Button */}
-                                        {selectedVessel.mmsi && (
-                                            <button
-                                                onClick={handleRefreshLocation}
-                                                disabled={isRefreshing}
-                                                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl transition-all duration-200 bg-accent-blue/10 border border-accent-blue/30 hover:bg-accent-blue/20 hover:border-accent-blue/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <RefreshCw
-                                                    size={14}
-                                                    className={`text-accent-blue ${isRefreshing ? 'animate-spin' : ''}`}
-                                                />
-                                                <span className="text-xs font-semibold text-accent-blue">
-                                                    {isRefreshing ? 'Refreshing...' : 'Refresh Location'}
-                                                </span>
-                                            </button>
-                                        )}
                                     </>
                                 ) : (
                                     // Show list of top 5 shipments when nothing selected
