@@ -71,18 +71,30 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
     };
 
     const handleShipmentSelect = (shipment: any) => {
-        // Find the latest log for this shipment to get coordinates
-        const shipLog = logs.find(log => log.shipment_id === shipment.id);
+        // Find the latest log for this shipment using flexible linkage
+        const shipLog = logs.find(log =>
+            log.shipment_id === shipment.id ||
+            (log.shipments?.booking_no === shipment.booking_no && shipment.booking_no) ||
+            (log.mmsi === shipment.mmsi && shipment.mmsi)
+        );
 
         let latitude: number;
         let longitude: number;
         let statusTag: string;
+        let speed: number | null = null;
+        let flag: string | undefined = undefined;
 
         if (shipLog) {
             // Use tracking log coordinates
             latitude = shipLog.latitude;
             longitude = shipLog.longitude;
-            statusTag = 'LIVE';
+            speed = shipLog.speed_knots;
+            flag = shipLog.flag;
+
+            // Calculate age to determine if it's "LIVE" or "STALE" (based on 6h rule)
+            const lastSyncTime = new Date(shipLog.last_sync).getTime();
+            const ageInHours = (Date.now() - lastSyncTime) / (1000 * 60 * 60);
+            statusTag = ageInHours < 6 ? 'LIVE' : 'STALE';
         } else {
             // Fallback: Use port of loading coordinates
             const fallbackCoords = getPortCoordinates(shipment.port_of_loading);
@@ -101,8 +113,8 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
             longitude,
             bookingNo: shipment.booking_no,
             mmsi: shipment.mmsi || undefined,
-            flag: shipLog?.flag,
-            speed: shipLog?.speed_knots,
+            flag: flag,
+            speed: speed,
         });
     };
 
@@ -205,7 +217,10 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                                 <p className="text-sm font-bold">{selectedVessel.name} - {selectedVessel.status}</p>
                                                 <p className="text-xs text-slate-500">{selectedVessel.scheduledDate}</p>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded uppercase font-bold inline-block">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold inline-block ${selectedVessel.statusTag === 'LIVE' ? 'bg-green-500/20 text-green-400' :
+                                                            selectedVessel.statusTag === 'STALE' ? 'bg-orange-500/20 text-orange-400' :
+                                                                'bg-slate-500/20 text-slate-400'
+                                                        }`}>
                                                         {selectedVessel.statusTag}
                                                     </span>
                                                     <span className="text-[10px] text-slate-400">
