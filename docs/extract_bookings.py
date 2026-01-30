@@ -16,7 +16,6 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env.loca
 
 SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
-RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
 
 BOOKING_DIR = os.path.join(os.path.dirname(__file__), 'Booking')
 
@@ -40,19 +39,9 @@ def get_supabase_client() -> Client:
 
 def get_vessel_mmsi(vessel_name: str, supabase: Client = None) -> dict:
     """
-    Get MMSI for a vessel by name using smart search logic:
+    Get MMSI for a vessel by name using:
     1. Check hardcoded references
-    2. Check vessel_master cache table
-    3. Call VesselFinder1 /search API
-    4. Filter for Cargo/Container Ship types
-    5. Save to vessel_master cache
-    
-    Args:
-        vessel_name: The name of the vessel to search for
-        supabase: Supabase client instance (optional, will create if not provided)
-        
-    Returns:
-        dict with keys: mmsi, imo, ship_type, carrier_scac, from_cache
+    2. Check vessel_master cache table in Supabase
     """
     normalized_name = vessel_name.strip().upper()
     
@@ -71,13 +60,13 @@ def get_vessel_mmsi(vessel_name: str, supabase: Client = None) -> dict:
     if supabase is None:
         supabase = get_supabase_client()
     
-    # Step 1: Check vessel_master cache table
+    # Step 1: Check vessel_master table
     if supabase:
         try:
             result = supabase.table('vessel_master').select('mmsi, imo, ship_type').eq('vessel_name', normalized_name).execute()
             if result.data and len(result.data) > 0:
                 cached = result.data[0]
-                print(f"[get_vessel_mmsi] Cache hit for {normalized_name}: {cached['mmsi']}")
+                print(f"[get_vessel_mmsi] Database hit for {normalized_name}: {cached['mmsi']}")
                 return {
                     'mmsi': cached['mmsi'],
                     'imo': cached.get('imo'),
@@ -85,79 +74,10 @@ def get_vessel_mmsi(vessel_name: str, supabase: Client = None) -> dict:
                     'from_cache': True,
                 }
         except Exception as e:
-            print(f"[get_vessel_mmsi] Cache lookup failed: {e}")
+            print(f"[get_vessel_mmsi] Database lookup failed: {e}")
     
-    # Step 2: Call VesselFinder1 /search API with vessel name
-    if not RAPIDAPI_KEY:
-        print("[get_vessel_mmsi] RAPIDAPI_KEY is missing")
-        return {'mmsi': None}
-    
-    url = "https://ais-vessel-finder.p.rapidapi.com/getAisData"
-    headers = {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": "ais-vessel-finder.p.rapidapi.com",
-        "11497305": "11497305"
-    }
-    params = {"name": vessel_name}
-    
-    try:
-        print(f"[get_vessel_mmsi] Calling VesselFinder1 API for: {vessel_name}")
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        results = response.json()
-        
-        if not results or (isinstance(results, list) and len(results) == 0):
-            print(f"[get_vessel_mmsi] No results found for: {vessel_name}")
-            return {'mmsi': None}
-        
-        # Step 3: Filter for Cargo/Container Ship types
-        vessels = results if isinstance(results, list) else [results]
-        
-        selected_vessel = None
-        for v in vessels:
-            ais_type = v.get('AIS_TYPE_SUMMARY', '')
-            if ais_type and any(ship_type.lower() in ais_type.lower() for ship_type in CARGO_SHIP_TYPES):
-                selected_vessel = v
-                break
-        
-        # If no cargo vessel found, use the first result
-        if not selected_vessel and len(vessels) > 0:
-            selected_vessel = vessels[0]
-            print(f"[get_vessel_mmsi] No cargo vessel found, using first result")
-        
-        if not selected_vessel or not selected_vessel.get('MMSI'):
-            print(f"[get_vessel_mmsi] No valid vessel found for: {vessel_name}")
-            return {'mmsi': None}
-        
-        mmsi = selected_vessel.get('MMSI')
-        imo = selected_vessel.get('IMO')
-        ship_type = selected_vessel.get('AIS_TYPE_SUMMARY')
-        
-        print(f"[get_vessel_mmsi] Found vessel: {selected_vessel.get('NAME')}, MMSI: {mmsi}, Type: {ship_type}")
-        
-        # Step 4: Save to vessel_master cache
-        if supabase:
-            try:
-                supabase.table('vessel_master').upsert({
-                    'vessel_name': normalized_name,
-                    'mmsi': mmsi,
-                    'imo': imo,
-                    'ship_type': ship_type,
-                }, on_conflict='vessel_name').execute()
-                print(f"[get_vessel_mmsi] Cached MMSI for {normalized_name}")
-            except Exception as e:
-                print(f"[get_vessel_mmsi] Failed to cache vessel: {e}")
-        
-        return {
-            'mmsi': mmsi,
-            'imo': imo,
-            'ship_type': ship_type,
-            'from_cache': False,
-        }
-        
-    except Exception as e:
-        print(f"[get_vessel_mmsi] Error searching for vessel {vessel_name}: {e}")
-        return {'mmsi': None}
+    print(f"[get_vessel_mmsi] Vessel {normalized_name} not found in database or hardcoded list")
+    return {'mmsi': None}
 
 
 def extract_hmm_booking(text: str) -> dict:
@@ -427,6 +347,87 @@ def extract_evergreen_booking(text: str) -> dict:
     return data
 
 
+def extract_oocl_booking(text: str) -> dict:
+    """Extract data from OOCL booking acknowledgement"""
+    data = {
+        'carrier_scac': 'OOLU',  # OOCL's SCAC code
+        'booking_no': None,
+        'main_vessel_name': None,
+        'voyage_no': None,
+        'pod_name': None,
+        'eta_at_pod': None,
+        'shipper_name': None,
+        'consignee_name': None,
+        'agent_company': 'OOCL (Thailand) Limited',
+        'etd_at_pol': None,
+        'carrier_name': 'OOCL',
+        'port_of_loading': None,
+        'place_of_receipt': None,
+        'origin': None,
+        'final_destination': None,
+    }
+    
+    # Booking No
+    match = re.search(r'BOOKING NUMBER:\s*(\d+)', text)
+    if match:
+        data['booking_no'] = match.group(1)
+    
+    # Vessel and Voyage - format: "INTENDED VESSEL/VOYAGE: YM CAPACITY 064N ETD: 30 Jan 2026"
+    match = re.search(r'INTENDED VESSEL/VOYAGE:\s*(.+?)\s+ETD:', text)
+    if match:
+        vessel_voyage = match.group(1).strip()
+        parts = vessel_voyage.split()
+        if len(parts) > 1:
+            data['voyage_no'] = parts[-1]
+            data['main_vessel_name'] = " ".join(parts[:-1])
+        else:
+            data['main_vessel_name'] = vessel_voyage
+    
+    # ETD
+    match = re.search(r'INTENDED VESSEL/VOYAGE:.+?ETD:\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})', text, re.DOTALL)
+    if match:
+        data['etd_at_pol'] = parse_date(match.group(1))
+
+    # POD - format: "PORT OF DISCHARGE: Nansha / Nansha new port (Guangzhou South ... ETA: 14 Feb 2026"
+    match = re.search(r'PORT OF DISCHARGE:\s*(.+?)(?:\s+ETA:|$)', text)
+    if match:
+        pod = match.group(1).strip()
+        data['pod_name'] = pod.split('/')[0].strip().split('\n')[0].strip()
+    
+    # ETA
+    match = re.search(r'PORT OF DISCHARGE:.+?ETA:\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})', text, re.DOTALL)
+    if match:
+        data['eta_at_pod'] = parse_date(match.group(1))
+    
+    # Shipper
+    match = re.search(r'SHIPPER:\s*(.+?)(?:\n|$)', text)
+    if match:
+        data['shipper_name'] = match.group(1).strip()
+    
+    # Booking Party as fallback for Shipper/Consignee
+    match = re.search(r'BOOKING PARTY:\s*(.+?)(?:\n|$)', text)
+    if match and not data['shipper_name']:
+        data['shipper_name'] = match.group(1).strip()
+    
+    # Port of Loading
+    match = re.search(r'PORT OF LOADING:\s*(.+?)(?:\s+ETA:|\n|$)', text)
+    if match:
+        data['port_of_loading'] = match.group(1).strip()
+        data['origin'] = data['port_of_loading']
+
+    # Place of Receipt
+    match = re.search(r'PLACE OF RECEIPT:\s*(.+?)(?:\n|$)', text)
+    if match:
+        data['place_of_receipt'] = match.group(1).strip()
+
+    # Final Destination
+    match = re.search(r'FINAL DESTINATION:\s*(.+?)(?:\s+ETA:|\n|$)', text)
+    if match:
+        data['final_destination'] = match.group(1).strip()
+    
+    return data
+
+
 
 def parse_date(date_str: str) -> str:
     """Parse various date formats to YYYY-MM-DD"""
@@ -458,6 +459,8 @@ def detect_booking_type(text: str) -> str:
         return 'MSC'
     elif 'EVERGREEN' in text or 'EGLV' in text:
         return 'EVERGREEN'
+    elif 'OOCL' in text or 'Booking Acknowledgement' in text:
+        return 'OOCL'
     return 'UNKNOWN'
 
 
@@ -488,6 +491,8 @@ def extract_booking_data(pdf_file: "str | object", supabase: Client = None) -> d
         data = extract_msc_booking(text)
     elif booking_type == 'EVERGREEN':
         data = extract_evergreen_booking(text)
+    elif booking_type == 'OOCL':
+        data = extract_oocl_booking(text)
     else:
         print(f"Unknown booking type")
         return None
