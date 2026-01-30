@@ -101,7 +101,7 @@ export default function VesselMap({ logs, selectedVessel }: VesselMapProps) {
     const defaultCenter: [number, number] = [13.048, 100.897];
 
     return (
-        <div className="glass-card rounded-2xl overflow-hidden h-[500px] mb-8 relative z-0">
+        <div className="glass-card rounded-2xl overflow-hidden h-[400px] mb-8 relative z-0 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             <div className="absolute top-4 left-4 z-[1000] glass-card px-4 py-2 rounded-lg pointer-events-none">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fleet Overview</p>
                 <p className="text-sm font-bold text-white">Live Vessel Positions</p>
