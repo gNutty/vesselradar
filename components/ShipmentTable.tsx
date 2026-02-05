@@ -18,6 +18,7 @@ interface Shipment {
     etd_at_pol?: string;
     eta_at_pod: string;
     mmsi?: string;
+    last_sync?: string;
 }
 
 const statusProgress: Record<string, number> = {
@@ -128,6 +129,19 @@ export default function ShipmentTable({
                                                     <p className="text-[10px] text-accent-blue mt-1 uppercase font-bold tracking-wider opacity-80">
                                                         {ship.carrier_name}
                                                     </p>
+                                                )}
+                                                {ship.last_sync && (
+                                                    <div className="flex items-center text-[10px] text-slate-500 mt-1.5 space-x-1.5 bg-white/5 w-fit px-2 py-0.5 rounded-md border border-white/5">
+                                                        <Clock size={10} className="text-slate-500" />
+                                                        <span>Updated: {new Date(ship.last_sync).toLocaleString('en-GB', { 
+                                                            day: '2-digit', 
+                                                            month: '2-digit', 
+                                                            year: 'numeric',
+                                                            hour: '2-digit', 
+                                                            minute: '2-digit',
+                                                            hour12: false 
+                                                        })}</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>

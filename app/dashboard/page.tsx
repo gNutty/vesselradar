@@ -5,9 +5,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
     try {
-        const shipments = await getShipments();
-        const logs = await getLatestTrackingLogs();
-        const stats = await getDashboardStats();
+        // Parallel data fetching using Promise.all (async-parallel rule)
+        const [shipments, logs, stats] = await Promise.all([
+            getShipments(),
+            getLatestTrackingLogs(),
+            getDashboardStats(),
+        ]);
 
         return (
             <DashboardClient

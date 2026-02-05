@@ -3,8 +3,9 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Ship, MapPin } from 'lucide-react';
+import { Ship } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { TrackingLog, SelectedVessel } from '@/types';
 
 // Fix for default marker icons in Leaflet - using inline styles because divIcon renders to static HTML
 const customShipIcon = L.divIcon({
@@ -48,36 +49,8 @@ const selectedVesselIcon = L.divIcon({
     iconAnchor: [23, 23],
 });
 
-interface TrackingLog {
-    id: string;
-    shipment_id: string;
-    latitude: number;
-    longitude: number;
-    status: string;
-    speed_knots: number;
-    course: number;
-    vessel_name: string;
-    mmsi: string;
-    flag: string;
-    shipments: {
-        booking_no: string;
-        main_vessel_name: string;
-    };
-}
-
-interface SelectedVessel {
-    id: string;
-    name: string;
-    status: string;
-    scheduledDate: string;
-    statusTag: string;
-    latitude: number;
-    longitude: number;
-    bookingNo: string;
-}
-
 interface VesselMapProps {
-    logs: any[];
+    logs: TrackingLog[];
     selectedVessel?: SelectedVessel | null;
 }
 

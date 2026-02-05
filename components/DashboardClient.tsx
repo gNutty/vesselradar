@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import StatsCards from '@/components/StatsCards';
 import ShipmentTable from '@/components/ShipmentTable';
-import { Bell, Search, User, RefreshCw } from 'lucide-react';
+import { Bell, Search, User } from 'lucide-react';
+import type { Shipment, TrackingLog, DashboardStats, SelectedVessel } from '@/types';
 
 // Dynamically import the map to avoid SSR issues with Leaflet
 const VesselMap = dynamic(() => import('@/components/VesselMap'), {
@@ -13,37 +14,42 @@ const VesselMap = dynamic(() => import('@/components/VesselMap'), {
     loading: () => <div className="glass-card rounded-2xl h-[500px] mb-8 animate-pulse bg-white/5" />
 });
 
-// Interface for the selected vessel state
-interface SelectedVessel {
-    id: string;
-    name: string;
-    status: string;
-    scheduledDate: string;
-    statusTag: string;
-    latitude: number;
-    longitude: number;
-    bookingNo: string;
-    mmsi?: string;
-    flag?: string;
-    speed?: number | null;
-}
-
 interface DashboardClientProps {
-    shipments: any[];
-    logs: any[];
-    stats: any;
+    shipments: Shipment[];
+    logs: TrackingLog[];
+    stats: DashboardStats;
 }
 
 export default function DashboardClient({ shipments, logs, stats }: DashboardClientProps) {
     const [selectedVessel, setSelectedVessel] = useState<SelectedVessel | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [trackingLogs, setTrackingLogs] = useState<TrackingLog[]>(logs);
 
-    // Filter shipments based on search term
-    const filteredShipments = shipments.filter(ship =>
-        ship.booking_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ship.main_vessel_name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Filter shipments based on search term and attach last_sync from logs
+    const filteredShipments = shipments
+        .filter(ship => {
+            const term = searchTerm.toLowerCase();
+            return (
+                ship.booking_no.toLowerCase().includes(term) ||
+                ship.main_vessel_name.toLowerCase().includes(term) ||
+                ship.shipper_name?.toLowerCase().includes(term) ||
+                ship.consignee_name?.toLowerCase().includes(term)
+            );
+        })
+        .map(ship => {
+            // Find the latest log for this shipment to get the last_sync time
+            const shipLog = trackingLogs.find(log =>
+                log.shipment_id === ship.id ||
+                (log.shipments?.booking_no === ship.booking_no && ship.booking_no) ||
+                (log.mmsi === ship.mmsi && ship.mmsi)
+            );
+
+            return {
+                ...ship,
+                last_sync: shipLog?.last_sync
+            };
+        });
 
 
 
@@ -72,7 +78,7 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
 
     const handleShipmentSelect = (shipment: any) => {
         // Find the latest log for this shipment using flexible linkage
-        const shipLog = logs.find(log =>
+        const shipLog = trackingLogs.find(log =>
             log.shipment_id === shipment.id ||
             (log.shipments?.booking_no === shipment.booking_no && shipment.booking_no) ||
             (log.mmsi === shipment.mmsi && shipment.mmsi)
@@ -133,6 +139,36 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
             const data = await response.json();
 
             if (response.ok && data.latitude && data.longitude) {
+                // Update the local tracking logs state immediately
+                setTrackingLogs(prevLogs => {
+                    const existingLogIndex = prevLogs.findIndex(l => l.mmsi === ship.mmsi || l.shipment_id === ship.id);
+                    const newLog: TrackingLog = {
+                        id: existingLogIndex >= 0 ? prevLogs[existingLogIndex].id : `temp-${Date.now()}`,
+                        shipment_id: ship.id,
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                        speed_knots: data.speed || 0,
+                        course: data.course || 0,
+                        status: data.status || 'Active', // Use new status or default
+                        vessel_name: data.name || ship.main_vessel_name,
+                        mmsi: ship.mmsi,
+                        flag: data.flag || 'Unknown',
+                        last_sync: new Date().toISOString(),
+                        shipments: existingLogIndex >= 0 ? prevLogs[existingLogIndex].shipments : {
+                            booking_no: ship.booking_no,
+                            main_vessel_name: ship.main_vessel_name
+                        }
+                    };
+
+                    if (existingLogIndex >= 0) {
+                        const newLogs = [...prevLogs];
+                        newLogs[existingLogIndex] = { ...newLogs[existingLogIndex], ...newLog };
+                        return newLogs;
+                    } else {
+                        return [newLog, ...prevLogs];
+                    }
+                });
+
                 // If the refreshed shipment is currently selected, update its state
                 if (selectedVessel && selectedVessel.id === ship.id) {
                     setSelectedVessel(prev => prev ? {
@@ -143,6 +179,8 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                         flag: data.flag || prev.flag,
                         speed: data.speed || prev.speed,
                         statusTag: 'LIVE',
+                        // Force refresh timestamp display
+                        scheduledDate: `ETA: ${ship.eta_at_pod ? new Date(ship.eta_at_pod).toLocaleDateString('en-GB') : 'TBD'}`
                     } : null);
                 }
                 console.log('[DashboardClient] Location refreshed:', data.source);
@@ -180,10 +218,10 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-accent-blue transition-colors" size={18} />
                                 <input
                                     type="text"
-                                    placeholder="Search Booking ID or Vessel..."
+                                    placeholder="Search Booking, Vessel, Shipper..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-accent-blue/50 focus:bg-white/10 transition-all w-64"
+                                    className="bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-accent-blue/50 focus:bg-white/10 transition-all w-72"
                                 />
                             </div>
                             <button className="p-2.5 bg-white/5 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors relative">
@@ -202,7 +240,7 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                         <StatsCards stats={stats} />
                     </div>
 
-                    <VesselMap logs={logs} selectedVessel={selectedVessel} />
+                    <VesselMap logs={trackingLogs} selectedVessel={selectedVessel} />
                 </div>
 
                 {/* Scrollable Content Area */}
@@ -252,7 +290,7 @@ export default function DashboardClient({ shipments, logs, stats }: DashboardCli
                                     ) : (
                                         // Show list of top 5 shipments when nothing selected
                                         shipments.slice(0, 5).map((shipment) => {
-                                            const hasLog = logs.some(l => l.shipment_id === shipment.id);
+                                            const hasLog = trackingLogs.some(l => l.shipment_id === shipment.id);
                                             return (
                                                 <button
                                                     key={shipment.id}

@@ -11,7 +11,7 @@ async function test() {
     try {
         const data = await fetchVesselData('440176000');
         if (data) {
-            console.log('Successfully fetched (or mocked) data:', data.NAME);
+            console.log('Successfully fetched (or mocked) data:', data.vesselName);
         } else {
             console.log('No data fetched (expected if keys are missing or invalid)');
         }
